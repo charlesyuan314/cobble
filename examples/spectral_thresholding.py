@@ -6,6 +6,11 @@ from numpy.polynomial.chebyshev import cheb2poly
 
 
 def spectral_thresholding(X: Expr):
+    """Matrix sign function.
+
+    Implements Ex. 5A of https://www.cfm.brown.edu/people/dobrush/am34/Mathematica/ch5/chebyshev.html
+    and Eq. 53 of https://arxiv.org/pdf/2105.02859."""
+
     def T_n(n, X):
         return Poly(X, Polynomial(cheb2poly([0.0] * n + [1.0])))
 

@@ -5,6 +5,10 @@ from scipy.special import jv
 
 
 def hamiltonian_simulation(X: Expr, real_phase: bool = False):
+    """Jacobi-Anger expansion of matrix exponential.
+
+    Implements Eq. 32 of https://quantum-journal.org/papers/q-2019-07-12-163/pdf/."""
+
     def T_n(n: int, X: Expr):
         return Poly(X, Polynomial(cheb2poly([0.0] * n + [1.0]).tolist()))
 

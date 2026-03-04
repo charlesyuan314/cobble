@@ -4,6 +4,10 @@ from numpy.polynomial.chebyshev import cheb2poly
 
 
 def matrix_inversion(X: Expr):
+    """Matrix inversion.
+
+    Implements Eq. 5 of https://arxiv.org/pdf/2507.15537."""
+
     n = 7
     a = 1.0 / 6.0
 
