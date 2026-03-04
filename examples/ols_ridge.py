@@ -3,6 +3,18 @@ from cobble.polynomial import Polynomial
 
 
 def ols_ridge(X: Expr):
+    """Interpolation between OLS and ridge solvers.
+
+    P_θ = θ·P_OLS + (1-θ)·P_λ, where:
+    P_OLS = X * H^{-1} * X† = X * (1/μ) * Σ_{k=0..d}(I-H/μ)^k * X† by Neumann series
+    P_λ = X * (H + λ I)^{-1} * X† = X * (1/λ) * Σ_{k=0..d}(-H/λ)^k * X† by Neumann series
+
+    Unoptimized: θ·[ X·(1/μ)·Σ_{k=0..d}(I-H/μ)^k·X† ] + (1-θ)·[ X·(1/λ)·Σ_{k=0..d}(-H/λ)^k·X† ].
+    Target: X·poly(H, p)·X† with p the degree-d blend of the two Neumann series.
+
+    Returns: (name, unoptimized_form, target_form) for this example.
+    """
+
     def build_p(d: int, lam: float, mu: float) -> Polynomial:
         n = d + 1
         # T1(x) = (1 - (1 - x/mu)^{n})/(mu x)

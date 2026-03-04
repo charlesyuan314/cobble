@@ -3,6 +3,17 @@ from cobble.polynomial import Polynomial
 
 
 def laplacian_filter(Hx: Expr, Hy: Expr):
+    """Separable 2D stencil on a rectangle.
+
+    H = Hx⊗I + I⊗Hy,
+    where per-axis polynomials are f,g(x) and p,q(y).
+
+    Unoptimized: poly(Hx,f)⊗poly(Hy,p) + poly(Hx,f)⊗poly(Hy,q) + poly(Hx,g)⊗poly(Hy,p) + poly(Hx,g)⊗poly(Hy,q).
+    Target: poly(Hx, f+g) ⊗ poly(Hy, p+q).
+
+    Returns: (name, unoptimized_form, target_form) for this example.
+    """
+
     kron = Expr.kron
 
     f = [1.0, 0.5]  # 1 + 0.5x
