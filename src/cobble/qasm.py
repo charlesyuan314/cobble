@@ -241,7 +241,7 @@ def _decompose_two_controlled(gate: FlatGate, ctx: QASMContext) -> list[FlatGate
 def _decompose_three_plus_controlled(
     gate: FlatGate, seed: int, ctx: QASMContext
 ) -> list[FlatGate]:
-    """Decompose 3+ controlled gate recursively: AND first n-1 controls, then 2-controlled U."""
+    """Decompose 3+ controlled gate using a linear V-ladder of (n-2) clean ancillas."""
     target = gate.targets[0] if len(gate.targets) == 1 else gate.targets
     controls = list(gate.controls)
     polarities = (
@@ -250,34 +250,51 @@ def _decompose_three_plus_controlled(
         else [ControlPolarity.POSITIVE] * len(controls)
     )
 
-    ancilla = ctx.allocate_ancilla()
+    # Build linear AND-ladder in bottom-up order so shared control prefixes reuse
+    # identical ancilla indices across consecutive multi-controlled gates.
+    ladder_ancillas: list[int] = []
+    compute_and: list[FlatGate] = []
 
-    and_gate = FlatGate(
-        "NOT", (ancilla,), tuple(controls[:-1]), (), tuple(polarities[:-1])
-    )
-    compute_and = _decompose_multi_controlled(and_gate, seed, ctx)
+    curr_ctrl = controls[0]
+    curr_pol = polarities[0]
+    for i in range(1, len(controls) - 1):
+        anc = ctx.allocate_ancilla()
+        ladder_ancillas.append(anc)
+        compute_and.append(
+            FlatGate(
+                "ccx",
+                (anc,),
+                (curr_ctrl, controls[i]),
+                (),
+                (curr_pol, polarities[i]),
+                is_conjugate_pair=True,
+            )
+        )
+        curr_ctrl = anc
+        curr_pol = ControlPolarity.POSITIVE
 
     if isinstance(target, tuple):
         controlled_gate = FlatGate(
             gate.name,
             target,
-            (ancilla, controls[-1]),
+            (curr_ctrl, controls[-1]),
             gate.params,
-            (ControlPolarity.POSITIVE, polarities[-1]),
+            (curr_pol, polarities[-1]),
         )
     else:
         controlled_gate = FlatGate(
             gate.name,
             (target,),
-            (ancilla, controls[-1]),
+            (curr_ctrl, controls[-1]),
             gate.params,
-            (ControlPolarity.POSITIVE, polarities[-1]),
+            (curr_pol, polarities[-1]),
         )
 
     apply_u = _decompose_multi_controlled(controlled_gate, seed, ctx)
     uncompute_and = list(reversed(compute_and))
 
-    ctx.free_ancilla(ancilla)
+    for anc in reversed(ladder_ancillas):
+        ctx.free_ancilla(anc)
     return compute_and + apply_u + uncompute_and
 
 

@@ -384,14 +384,15 @@ class TestMultiControlledComplexGates:
             assert g.name in ("ccx", "NOT")
 
     def test_five_controlled_not(self):
-        """Test 5-controlled NOT (C5X) decomposes correctly."""
+        """Test 5-controlled NOT (C5X) decomposes correctly using a linear (2k-3) V-ladder."""
 
         gate = FlatGate("NOT", (5,), (0, 1, 2, 3, 4))
         ctx = QASMContext(total_qubits=6)
         decomposed = decompose_for_qasm(gate, ctx=ctx)
 
-        assert len(ctx.allocated_ancillas) >= 3
-        assert len(decomposed) >= 5
+        assert len(ctx.allocated_ancillas) == 3
+        assert len(decomposed) == 2 * 5 - 3
+        assert all(g.name == "ccx" for g in decomposed)
 
     def test_three_controlled_z(self):
         """Test 3-controlled Z (C3Z) decomposes using ancilla."""

@@ -257,7 +257,7 @@ def _try_poly_product_fusion(factors: list[Expr]) -> Expr | None:
         else:
             return None
         continue
-    if base is None or acc_poly is None:
+    if base is None or acc_poly is None or not base.is_hermitian():
         return None
     if abs(scale - 1.0) > TOL:
         acc_poly = acc_poly.scale(scale)

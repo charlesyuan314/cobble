@@ -539,7 +539,14 @@ class Prod(Expr):
 
         fused = _try_poly_product_fusion(flats)
         if fused is not None:
-            return fused.optimize()
+            opt_fused = fused.optimize()
+            unfused_queries = sum(f.queries() for f in flats)
+            unfused_alpha = 1.0
+            for f in flats:
+                unfused_alpha *= f.subnormalization()
+            unfused_cost = unfused_queries * unfused_alpha
+            if opt_fused.total_cost() <= unfused_cost / (1.0 - 2 * QSP_TOL):
+                return opt_fused
 
         # Collapse multiple Ifs with the same condition across the product:
         # (if c then A else B) * (if c then C else D) * ... => if c then A*C*... else B*D*...
@@ -566,12 +573,12 @@ class Prod(Expr):
         if len(flats) == 1:
             return flats[0].optimize()
 
-        # If all factors identical: M*M*...*M -> poly(M, x^k)
+        # If all factors identical and Hermitian: M*M*...*M -> poly(M, x^k)
         head = repr(flats[0])
-        if all(repr(f) == head for f in flats[1:]):
+        if flats[0].is_hermitian() and all(repr(f) == head for f in flats[1:]):
             return Poly(flats[0], Polynomial.pow_x(len(flats))).optimize()
 
-        return Prod(flats)
+        return Prod(flats, hermitian=self.hermitian)
 
     @override
     def subnormalization(self) -> float:
@@ -599,8 +606,30 @@ class Prod(Expr):
 
     @override
     def is_hermitian(self) -> bool:
+        if self.hermitian:
+            return True
+        # Flatten nested Prod nodes (e.g., (X * B) * X† -> [X, B, X†])
+        flat_factors: list[Expr] = []
+
+        def _collect(e: Expr) -> None:
+            if isinstance(e, Prod):
+                for sub in e.factors:
+                    _collect(sub)
+            else:
+                flat_factors.append(e)
+
+        _collect(self)
+        # Conjugate-palindromic product (e.g., X† * X or A† * B * A with B Hermitian):
+        # (F_1 ... F_n)† = F_n† ... F_1† == F_1 ... F_n
+        n = len(flat_factors)
+        if n > 0 and (n % 2 == 0 or flat_factors[n // 2].is_hermitian()):
+            if all(
+                Expr.structural_eq(Dagger(flat_factors[i]), flat_factors[n - 1 - i])
+                for i in range(n // 2)
+            ):
+                return True
         # if any factor is not Hermitian, then the product is not Hermitian
-        if not all(f.is_hermitian() for f in self.factors):
+        if not all(f.is_hermitian() for f in flat_factors):
             return False
         # if all factors are identical, then the product is Hermitian
         if all(f == self.factors[0] for f in self.factors):

@@ -506,6 +506,23 @@ class TestProd:
         A = Basic("A", hermitian=False, hermitian_block_encoding=False)
         P = Prod([A, A])
         assert P.is_hermitian() is False
+        assert (A * A).optimize().qtype() == A.qtype()
+
+    def test_prod_hermitian_gram_matrix_conjugate_palindrome(self):
+        """Gram matrix X†*X and palindromic A*B*A† are Hermitian even when X, A are non-Hermitian."""
+        X = Basic("X", hermitian=False, hermitian_block_encoding=False)
+        H = Dagger(X) * X
+        assert H.is_hermitian() is True
+        poly_h = Poly(H, Polynomial([1.0, -0.5, 0.25]))
+        assert (X * poly_h * Dagger(X)).is_hermitian() is True
+
+    def test_prod_poly_fusion_preserves_cost_monotonicity(self):
+        """Mixed-parity polynomial product fusion must not increase total_cost() (Theorem 6.3)."""
+        A = Basic("A")
+        expr = (A + 0.5 * (A**2)) * (A**8)
+        opt = expr.optimize()
+        assert opt.queries() <= expr.queries()
+        assert opt.total_cost() <= expr.total_cost() / (1.0 - 2 * QSP_TOL)
 
     def test_prod_hermitian_block_encoding(self):
         """Product is Hermitian block encoding if all factors are Hermitian block encoding."""
